@@ -68,7 +68,7 @@ impl Application for GuessingGame {
     fn title(&self) -> String {
         format!(
             "Guessing Game {} {}",
-            if self.guessing_output.len() == 0 {
+            if self.guessing_output.is_empty() {
                 ""
             } else {
                 "-"
@@ -81,11 +81,10 @@ impl Application for GuessingGame {
         match message {
             GuessingGameMessage::Input(input) => self.guessing_input = input,
             GuessingGameMessage::Guess => {
-                self.guessing_output = match self.guess() {
-                    Ok(attempts) => {
-                        self.party_finished = true;
-                        format!("It tooks {attempts} attempts")
-                    }
+                let party_result = self.guess();
+                self.party_finished = party_result.is_ok();
+                self.guessing_output = match party_result {
+                    Ok(attempts) => format!("It tooks {attempts} attempts"),
                     Err(err) => format!("{err}"),
                 }
             }
@@ -108,8 +107,7 @@ impl Application for GuessingGame {
         let column = column![output, input];
 
         if self.party_finished {
-            let new_party_button = button("New party ?").on_press(GuessingGameMessage::NewParty);
-            column.push(new_party_button)
+            column.push(button("New party ?").on_press(GuessingGameMessage::NewParty))
         } else {
             column
         }
