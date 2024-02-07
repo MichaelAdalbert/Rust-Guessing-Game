@@ -2,5 +2,5 @@
 pub enum GuessingGameMessage {
     Input(String),
     Guess,
-    NewParty
+    NewParty,
 }
