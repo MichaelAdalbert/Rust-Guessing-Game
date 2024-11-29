@@ -1,6 +1,7 @@
 use iced::widget::{button, column, text, text_input};
-use iced::{executor, Application, Command, Element, Renderer, Theme};
+use iced::{Element, Task as Command};
 use rand::random;
+use std::ops::Not;
 
 use super::error::GuessingGameError;
 use super::message::GuessingGameMessage;
@@ -17,7 +18,7 @@ pub struct GuessingGame {
 }
 
 impl GuessingGame {
-    fn init(low: u32, high: u32) -> Self {
+    pub fn init(low: u32, high: u32) -> Self {
         Self {
             guessing_input: String::default(),
             guessing_output: String::default(),
@@ -55,17 +56,12 @@ impl GuessingGame {
     }
 }
 
-impl Application for GuessingGame {
-    type Executor = executor::Default;
-    type Message = GuessingGameMessage;
-    type Theme = Theme;
-    type Flags = ();
-
-    fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
+impl GuessingGame {
+    pub(crate) fn new() -> (Self, Command<GuessingGameMessage>) {
         (GuessingGame::init(0, 10), Command::none())
     }
 
-    fn title(&self) -> String {
+    pub(crate) fn title(&self) -> String {
         format!(
             "Guessing Game {} {}",
             if self.guessing_output.is_empty() {
@@ -77,14 +73,14 @@ impl Application for GuessingGame {
         )
     }
 
-    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+    pub(crate) fn update(&mut self, message: GuessingGameMessage) -> Command<GuessingGameMessage> {
         match message {
             GuessingGameMessage::Input(input) => self.guessing_input = input,
             GuessingGameMessage::Guess => {
                 let party_result = self.guess();
                 self.party_finished = party_result.is_ok();
                 self.guessing_output = match party_result {
-                    Ok(attempts) => format!("It tooks {attempts} attempts"),
+                    Ok(attempts) => format!("It took {attempts} attempts"),
                     Err(err) => format!("{err}"),
                 }
             }
@@ -93,24 +89,21 @@ impl Application for GuessingGame {
         Command::none()
     }
 
-    fn view(&self) -> Element<'_, Self::Message, Renderer<Self::Theme>> {
-        let output = text(self.guessing_output.as_str());
-        let input = text_input("Enter a number ?", self.guessing_input.as_str())
-            .on_input(GuessingGameMessage::Input);
+    pub(crate) fn view(&self) -> Element<GuessingGameMessage> {
+        let output = text(&self.guessing_output);
+        let input = text_input("Enter a number ?", &self.guessing_input)
+            .on_input(GuessingGameMessage::Input)
+            .on_submit_maybe(
+                self.party_finished
+                    .not()
+                    .then(|| GuessingGameMessage::Guess),
+            );
 
-        let input = if self.party_finished {
-            input
-        } else {
-            input.on_submit(GuessingGameMessage::Guess)
-        };
-
-        let column = column![output, input];
-
-        if self.party_finished {
-            column.push(button("New party ?").on_press(GuessingGameMessage::NewParty))
-        } else {
-            column
-        }
-        .into()
+        column![output, input]
+            .push_maybe(
+                self.party_finished
+                    .then(|| button("New Party").on_press(GuessingGameMessage::NewParty)),
+            )
+            .into()
     }
 }
